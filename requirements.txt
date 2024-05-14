@@ -1,0 +1,17 @@
+cmake==3.25.2
+contourpy==1.2.1
+cycler==0.12.1
+dlib==19.24.0
+fonttools==4.51.0
+kiwisolver==1.4.5
+matplotlib==3.8.4
+numpy==1.26.4
+opencv-python==4.9.0.80
+packaging==24.0
+pillow==10.3.0
+pip==22.0.2
+pyparsing==3.1.2
+python-dateutil==2.9.0.post0
+setuptools==59.6.0
+six==1.16.0
+wheel==0.38.4
