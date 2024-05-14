@@ -31,7 +31,7 @@ class BPMFourier:
         # Inicializando uma imagem em preto e branco com as dimensões da imagem de entrada
         self.firstFrame = np.zeros((self.height, self.width, 3))
         # Construindo a pirâmide gaussiana a partir da imagem inicial
-        self.firstGauss = self.buildGauss(self.firstFrame, self.levels+1)[self.levels]
+        self.firstGauss = self.buildGauss(self.firstFrame, self.levels + 1)[self.levels]
         # Criando um array multidimensional para armazenar os quadros da pirâmide gaussiana ao longo do tempo
         self.videoGauss = np.zeros((self.bufferSize, self.firstGauss.shape[0], self.firstGauss.shape[1], 3))
         # Inicializando um array para armazenar a média da transformada de Fourier ao longo do tempo
@@ -69,7 +69,7 @@ class BPMFourier:
         # Inicializa a lista da pirâmide com o quadro original
         pyramid = [frame]
         # Itera sobre o número de níveis desejados na pirâmide
-        for level in range(levels):
+        for _ in range(levels):
             # Reduz o tamanho do quadro utilizando a operação de pirâmide Gaussiana (pyrDown)
             frame = cv2.pyrDown(frame)
             # Adiciona o quadro reduzido à lista da pirâmide
