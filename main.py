@@ -1,143 +1,103 @@
-"""
-Webcam Heart Rate Monitor
-Gilad Oved
-December 2018
-"""
 
+import face_utils
 import numpy as np
+import utils
+import dlib 
 import cv2
-import sys
+import bpm
 
-# Helper Methods
-def buildGauss(frame, levels):
-    pyramid = [frame]
-    for level in range(levels):
-        frame = cv2.pyrDown(frame)
-        pyramid.append(frame)
-    return pyramid
-def reconstructFrame(pyramid, index, levels):
-    filteredFrame = pyramid[index]
-    for level in range(levels):
-        filteredFrame = cv2.pyrUp(filteredFrame)
-    filteredFrame = filteredFrame[:videoHeight, :videoWidth]
-    return filteredFrame
+forehead_bpm = bpm.BPMFourier(width = 100, height = 40)
+checks1_bpm = bpm.BPMFourier(width = 40, height = 25)
+checks2_bpm = bpm.BPMFourier(width = 40, height = 25)
 
-# Webcam Parameters
-webcam = None
-if len(sys.argv) == 2:
-    webcam = cv2.VideoCapture(sys.argv[1])
-else:
-    webcam = cv2.VideoCapture(0)
-realWidth = 320
-realHeight = 240
-videoWidth = 160
-videoHeight = 120
-videoChannels = 3
-videoFrameRate = 15
-webcam.set(3, realWidth)
-webcam.set(4, realHeight)
+# Dispositivo de captura de entrada (0 -> dispositivo padrão de webcam)
+cap = cv2.VideoCapture(0)
 
-# Output Videos
-if len(sys.argv) != 2:
-    originalVideoFilename = "original.mov"
-    originalVideoWriter = cv2.VideoWriter()
-    originalVideoWriter.open(originalVideoFilename, cv2.VideoWriter_fourcc('j', 'p', 'e', 'g'), videoFrameRate, (realWidth, realHeight), True)
+# Verificar se a câmera abriu corretamente
+if not cap.isOpened():
+    print('Erro para inicializar a entrada de vídeo.')
+    exit()
 
-outputVideoFilename = "output.mov"
-outputVideoWriter = cv2.VideoWriter()
-outputVideoWriter.open(outputVideoFilename, cv2.VideoWriter_fourcc('j', 'p', 'e', 'g'), videoFrameRate, (realWidth, realHeight), True)
+# Pesos treinados do detector de faces (Local Binary Patterns Improved)
+facial_detection_path = 'lib64/python3.10/site-packages/cv2/data/lbpcascade_frontalface_improved.xml'
+# Carregando a arquitetura de detecção facial
+face_cascade = cv2.CascadeClassifier(facial_detection_path)
+# Pesos treinados do modelo de detecção de pontos faciais (Face Landmarks - 68 points)
+predictor_landmarks = dlib.shape_predictor('lib64/python3.10/site-packages/dlib/shape_predictor_68_face_landmarks.dat')
 
-# Color Magnification Parameters
-levels = 3
-alpha = 170
-minFrequency = 1.0
-maxFrequency = 2.0
-bufferSize = 150
-bufferIndex = 0
+# Intera sobre os frames da WebCam
+while cap.isOpened():
 
-# Output Display Parameters
-font = cv2.FONT_HERSHEY_SIMPLEX
-loadingTextLocation = (20, 30)
-bpmTextLocation = (videoWidth//2 + 5, 30)
-fontScale = 1
-fontColor = (255,255,255)
-lineType = 2
-boxColor = (0, 255, 0)
-boxWeight = 3
+    # Captura o frame atual da WebCam
+    ret, frame = cap.read()
+    # Normaliza as dimensões do display de vídeo
+    frame = cv2.resize(src = frame, dsize = (640, 480))
+    # Espelha a imagem horizontalmente para correção de visualização
+    frame = cv2.flip(src = frame, flipCode = 1)
+    # Cria uma cópia da imagem de referência pré-processada
+    frame_copy = frame.copy()
+    # Modifica a imagem para a escala de cinza em apenas 1 canal
+    gray = cv2.cvtColor(src = frame, code = cv2.COLOR_BGR2GRAY)
 
-# Initialize Gaussian Pyramid
-firstFrame = np.zeros((videoHeight, videoWidth, videoChannels))
-firstGauss = buildGauss(firstFrame, levels+1)[levels]
-videoGauss = np.zeros((bufferSize, firstGauss.shape[0], firstGauss.shape[1], videoChannels))
-fourierTransformAvg = np.zeros((bufferSize))
-
-# Bandpass Filter for Specified Frequencies
-frequencies = (1.0*videoFrameRate) * np.arange(bufferSize) / (1.0*bufferSize)
-mask = (frequencies >= minFrequency) & (frequencies <= maxFrequency)
-
-# Heart Rate Calculation Variables
-bpmCalculationFrequency = 15
-bpmBufferIndex = 0
-bpmBufferSize = 10
-bpmBuffer = np.zeros((bpmBufferSize))
-
-i = 0
-while (True):
-    ret, frame = webcam.read()
-    if ret == False:
+    # Caso não consiga interar sobre o frame, finaliza a interação
+    if not ret: 
+        print('Erro na entrada de vídeo.')
         break
+    
+    # Realiza a detecção facial no frame atual com um modelo pré-treinado
+    faces = face_utils.facial_detection(gray_image = gray, face_cascade = face_cascade)
+    # Desenha as caixas delimitadoras sobre as faces detectadas
+    info_detection = face_utils.draw_rectangle_face(image = frame, faces = faces)
+    
+    
+    if len(faces) == 1:
+        # Obtém os pontos facias a partir da caixa delimitadoras
+        facial_points = face_utils.face_landmarks(gray_image = gray, faces = faces, 
+                                                  predictor = predictor_landmarks)
+        # Desenha na imagem os pontos facias e obtém os pontos de análise da bochecha e da testa
+        points_ref = face_utils.draw_landmarks(image = frame, facial_points = facial_points)
+        # Obtém as coordenadas das caixas delimitadoras das bochechas e da testa para análise
+        coords_facial_locals = face_utils.get_facial_analisis_coords(points_ref)
+        # Desenha na imagem as coordenadas das bochechas e da testa
+        landmarks_flag = face_utils.draw_rectangle_facial_locals(image = frame, 
+                                                                 coords_facial_locals = coords_facial_locals)
+        
+        if landmarks_flag:
+            # Extrai as imagens das bochechas e da testa para análise do batimento cardiaco
+            image_locals = face_utils.extract_local_regions(image = frame_copy, 
+                                                            coords_facial_locals = coords_facial_locals)
+            
+            forehead = cv2.resize(image_locals[0], (100, 40))
+            checks1 = cv2.resize(image_locals[1], (40, 25))
+            checks2 = cv2.resize(image_locals[1], (40, 25)) 
 
-    if len(sys.argv) != 2:
-        originalFrame = frame.copy()
-        originalVideoWriter.write(originalFrame)
+            forehead_image, forehead_data = forehead_bpm.update(frame = forehead)
+            checks1_image, checks1_data = checks1_bpm.update(frame = checks1)
+            checks2_image, checks2_data =checks2_bpm.update(frame = checks2)
 
-    detectionFrame = frame[videoHeight//2:realHeight-videoHeight//2, videoWidth//2:realWidth-videoWidth//2, :]
+            if forehead_data == None or checks1_data == None or checks2_data == None:
+                cv2.putText(img = frame, text = 'Batimento por Minuto: Calculando', org = (5, 460), 
+                            fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = [0, 0, 255],
+                            thickness = 2)
+            elif forehead_data != None and checks1_data != None and checks2_data != None:
+                bpm_mean = (forehead_data + checks1_data + checks2_data) / 3
+                bpm_mean = np.round(bpm_mean, 2)
+                cv2.putText(img = frame, text = f'Batimento por Minuto: {bpm_mean}', org = (5, 460), 
+                            fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = [0, 0, 255],
+                            thickness = 2)
 
-    # Construct Gaussian Pyramid
-    videoGauss[bufferIndex] = buildGauss(detectionFrame, levels+1)[levels]
-    fourierTransform = np.fft.fft(videoGauss, axis=0)
+    # Aplica informações textuais sobre o frame
+    utils.text_image(image = frame, detection_flag = info_detection)
 
-    # Bandpass Filter
-    fourierTransform[mask == False] = 0
+    # Mostra a imagem de saída em um display externo
+    cv2.imshow(winname = 'Batimento Cardiaco - PDS Projeto', mat = frame)
+    
+    # Captura a entrada de tecla do usuário e adiciona um delay na interação dos frames
+    key= cv2.waitKey(delay = 1)
 
-    # Grab a Pulse
-    if bufferIndex % bpmCalculationFrequency == 0:
-        i = i + 1
-        for buf in range(bufferSize):
-            fourierTransformAvg[buf] = np.real(fourierTransform[buf]).mean()
-        hz = frequencies[np.argmax(fourierTransformAvg)]
-        bpm = 60.0 * hz
-        bpmBuffer[bpmBufferIndex] = bpm
-        bpmBufferIndex = (bpmBufferIndex + 1) % bpmBufferSize
+    # Caso o usuário pressione a tecla q, feche o programa
+    if key == ord('q'): break
 
-    # Amplify
-    filtered = np.real(np.fft.ifft(fourierTransform, axis=0))
-    filtered = filtered * alpha
-
-    # Reconstruct Resulting Frame
-    filteredFrame = reconstructFrame(filtered, bufferIndex, levels)
-    outputFrame = detectionFrame + filteredFrame
-    outputFrame = cv2.convertScaleAbs(outputFrame)
-
-    bufferIndex = (bufferIndex + 1) % bufferSize
-
-    frame[videoHeight//2:realHeight-videoHeight//2, videoWidth//2:realWidth-videoWidth//2, :] = outputFrame
-    cv2.rectangle(frame, (videoWidth//2 , videoHeight//2), (realWidth-videoWidth//2, realHeight-videoHeight//2), boxColor, boxWeight)
-    if i > bpmBufferSize:
-        cv2.putText(frame, "BPM: %d" % bpmBuffer.mean(), bpmTextLocation, font, fontScale, fontColor, lineType)
-    else:
-        cv2.putText(frame, "Calculating BPM...", loadingTextLocation, font, fontScale, fontColor, lineType)
-
-    outputVideoWriter.write(frame)
-
-    if len(sys.argv) != 2:
-        cv2.imshow("Webcam Heart Rate Monitor", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-webcam.release()
+# Fecha o display corretamente gerado pelo OpenCV
+cap.release()
 cv2.destroyAllWindows()
-outputVideoWriter.release()
-if len(sys.argv) != 2:
-    originalVideoWriter.release()
