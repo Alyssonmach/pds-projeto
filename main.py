@@ -6,6 +6,7 @@ import dlib
 import cv2
 import bpm
 
+# Inicializando a classe que realiza as medições de batimento cardíaco e definindo as dimensões das imagens
 forehead_bpm = bpm.BPMFourier(width = 100, height = 40)
 checks1_bpm = bpm.BPMFourier(width = 40, height = 25)
 checks2_bpm = bpm.BPMFourier(width = 40, height = 25)
@@ -64,27 +65,32 @@ while cap.isOpened():
         
         if landmarks_flag:
             # Extrai as imagens das bochechas e da testa para análise do batimento cardiaco
-            image_locals = face_utils.extract_local_regions(image = frame_copy, 
-                                                            coords_facial_locals = coords_facial_locals)
+            image_locals = face_utils.extract_local_regions(image = frame_copy, coords_facial_locals = coords_facial_locals)
             
-            forehead = cv2.resize(image_locals[0], (100, 40))
-            checks1 = cv2.resize(image_locals[1], (40, 25))
-            checks2 = cv2.resize(image_locals[1], (40, 25)) 
+            try:
+                # Padroniza a dimensão dos pedaços de imagens da testa e da bochecha
+                forehead = cv2.resize(image_locals[0], (100, 40))
+                checks1 = cv2.resize(image_locals[1], (40, 25))
+                checks2 = cv2.resize(image_locals[1], (40, 25)) 
 
-            forehead_image, forehead_data = forehead_bpm.update(frame = forehead)
-            checks1_image, checks1_data = checks1_bpm.update(frame = checks1)
-            checks2_image, checks2_data =checks2_bpm.update(frame = checks2)
+                # Manda para a classe que calcula o BPM para iniciar o procedimento de interação e obter os dados
+                forehead_image, forehead_data = forehead_bpm.update(frame = forehead)
+                checks1_image, checks1_data = checks1_bpm.update(frame = checks1)
+                checks2_image, checks2_data =checks2_bpm.update(frame = checks2)
 
-            if forehead_data == None or checks1_data == None or checks2_data == None:
-                cv2.putText(img = frame, text = 'Batimento por Minuto: Calculando', org = (5, 460), 
-                            fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = [0, 0, 255],
-                            thickness = 2)
-            elif forehead_data != None and checks1_data != None and checks2_data != None:
-                bpm_mean = (forehead_data + checks1_data + checks2_data) / 3
-                bpm_mean = np.round(bpm_mean, 2)
-                cv2.putText(img = frame, text = f'Batimento por Minuto: {bpm_mean}', org = (5, 460), 
-                            fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = [0, 0, 255],
-                            thickness = 2)
+                # Se ainda estiver no processo de interação, informa que ainda está calculando na tela
+                if forehead_data == None or checks1_data == None or checks2_data == None:
+                    cv2.putText(img = frame, text = 'Batimento por Minuto: Calculando', org = (5, 460), 
+                                fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = [0, 0, 255],
+                                thickness = 2)
+                # Caso contrário, calcula a média do BPM para as três regiões faciais e mostra na tela
+                elif forehead_data != None and checks1_data != None and checks2_data != None:
+                    bpm_mean = (forehead_data + checks1_data + checks2_data) / 3
+                    bpm_mean = np.round(bpm_mean, 2)
+                    cv2.putText(img = frame, text = f'Batimento por Minuto: {bpm_mean}', org = (5, 460), 
+                                fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale = 1, color = [0, 0, 255],
+                                thickness = 2)
+            except: pass
 
     # Aplica informações textuais sobre o frame
     utils.text_image(image = frame, detection_flag = info_detection)
