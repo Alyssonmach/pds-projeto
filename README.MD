@@ -5,11 +5,31 @@ A proposta desse projeto de finalização de disciplina é conseguir detectar ba
 ![Eulerian Video Magnification](assets/eulerian-magnification.png)
 > Um exemplo de uso da aplicação de Magnificação de Vídeo Euleriano para visualizar o pulso humano. (a) Quatro frames da sequência de vídeo original. (b) Os mesmos quatro frames com o sinal de pulso do usuário amplificado. (c) Uma linha de varredura vertical dos vídeos de entrada (topo) e saída (parte inferior) plotada ao longo do tempo mostra como nosso método amplifica a variação cromática periódica. Na sequência de entrada, o sinal é imperceptível, mas na sequência ampliada a variação fica clara.
 
+![filtro-magnificacao](assets/filtro-magnificacao.gif)
+> A partir da aplicação de Magnificação Euleriana, conseguimos obter visualmente na imagem a representação do pulso na pele do usuário. Desse modo, aplicando a transformada de Fourier para entender as componentes de frequência desse sinal, juntamente com um filtro passa-banda para extrair as pulsações, conseguimos quantificar a quantidade de batimentos cardíacos por minuto (BPM). Fator esse que não seria possível utilizando somente uma vídeo simples.
+
+### Instalação do Projeto
+
+A versão do Python utilizada para realização desse projeto foi a `3.10.12`, todos os pacotes utilizados com suas respectivas versões podem ser encontradas no arquivo `requirements.txt`.
+
+### Custo do Projeto
+
+|Fatores de Custo|Preço (R$)|
+|-|-|
+|Pesquisa e Desenvolvimento|2000|
+|Embarcar a Aplicação em Hardwares de Menor Custo|1000|
+|Aplicação do Método Desenvolvido em Outras Áreas|3000|
+
+Considerando que essa aplicação de Magnificação Euleriana pode ser utilizada em diversas aplicações, como por exemplo, teste de vivacidade em aplicações de reconhecimento facial, com o intuito de detectar se a pessoa a ser reconhecida na imagem é uma pessoa real ao invés de uma foto ou vídeo de outro usuário, foi definido uma quantia extra caso o cliente deseje expandir essa técnica em outras aplicações úteis.
+
 ### Escopo da Aplicação
 
 O método de Magnificação de Vídeo Euleriano foi utilizado para inferir o batimento cardíaco através da região facial. Esse processo envolveu a amplificação de variações sutis na coloração da pele da face, que estão associadas aos batimentos cardíacos, tornando essas variações visíveis e analisáveis no vídeo. 
 
 Para realizar esse procedimento, utilizei um algoritmo de detecção facial para identificar e delimitar a região do rosto na imagem. Em seguida, por meio do mapeamento de pontos faciais, identifiquei pontos específicos na testa e nas bochechas para extrair regiões de interesse. Essas regiões foram então analisadas usando a técnica de Magnificação de Vídeo Euleriano para amplificar variações sutis associadas ao batimento cardíaco, permitindo a inferência do pulso a partir das mudanças de cor nessas áreas do rosto.
+
+![aplicacao](assets/aplicacao.gif)
+> Ilustração da aplicação funcionando, a partir das regiões da bochecha e da testa, aplicamos o método proposto para identificação de batimento cardíaco nessas regiões delimitadas.
 
 1. **Inicialização da Classe `BPMFourier`**:
    - Classe chamada `BPMFourier` que é inicializada com a largura (`width`) e altura (`height`) da imagem de entrada.
